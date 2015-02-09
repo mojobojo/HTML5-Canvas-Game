@@ -28,28 +28,35 @@ var PlayerPosition = new Vector2(100.0, 100.0);
 var PlayerVelocity = new Vector2(0.0, 0.0);
 var DirectionCopy = new Vector2(0.0, 0.0);
 
+// TODO: I think I want to make Bullets, Badguys, and HitTexts a static sized array
+// instead of a dynamic one to reduce the amount of "new" operations
+
 var Bullets = []
 var BulletFireSpeed = 0.5;
 var BulletFireSpeedTimer = 0.0;
 var ReadyToShoot = false;
 
 var BadGuys = [];
-
 var HitTexts = [];
 
-var MaxParticles = 128;
+var MaxParticles = 256;
 var Particles = [];
 
-var Particle = function(X, Y, InLifespan)
+var Particle = function(X, Y, Direction, Color, InLifespan)
 {
     this.Position = new Vector2(X, Y);
     this.Lifespan = InLifespan;
+    this.Direction = new Vector2(Direction.X, Direction.Y);
+    this.Color = Color;
+    this.Speed = 5.0;
+    this.HasGravity = false;
 
     this.Update = function(DeltaTime)
     {
         if (this.Lifespan > 0.0)
         {
-
+            this.Position.X += this.Direction.X * DeltaTime * this.Speed;
+            this.Position.Y += this.Direction.Y * DeltaTime * this.Speed;
         }
 
         this.Lifespan -= DeltaTime;
@@ -59,7 +66,9 @@ var Particle = function(X, Y, InLifespan)
     {
         if (this.Lifespan > 0.0)
         {
-            DrawFilledRectangle(this.Position.X, this.Position.Y, 4, 4, "#FF0000");
+            // I dont know why but for some reason I need to set fill style here too to get it to register
+            Context.fillStyle = this.Color;
+            DrawFilledRectangle(this.Position.X, this.Position.Y, 4, 4, this.Color);
         }
     }
 }
@@ -93,6 +102,8 @@ var AnimatedText = function(X, Y, InText)
     {
         if (!this.Dead)
         {
+            // TODO: Figure out why I have to set the color twice
+            Context.fillStyle = "#FFF000";
             DrawText(this.Position.X, this.Position.Y, this.Text, true, "#FFF000");
         }
     }
@@ -169,6 +180,11 @@ var BadGuy = function(InPosition)
 
     this.Update = function(DeltaTime)
     {
+        if (this.Dead)
+        {
+            return;
+        }
+
         var LastPosition = new Vector2(PlayerPosition.X, PlayerPosition.Y);
         var Bleh = new Vector2(PlayerPosition.X, PlayerPosition.Y);
 
@@ -196,6 +212,13 @@ var BadGuy = function(InPosition)
         this.Velocity.X = this.Direction.X * DeltaTime + this.Velocity.X;
         this.Velocity.Y = this.Direction.Y * DeltaTime + this.Velocity.Y;
 
+        if (RandomFloat(0.0, 1.0) > 0.5)
+        {
+            var Dir = new Vector2(RandomFloat(-5.0, 5.0), 10.0);
+            AddParticle(this.Position.X, this.Position.Y, Dir, "#FF0000", RandomFloat(0.0, 1.0));
+        }
+
+        // Bullet collisions
         for (var i = 0; i < Bullets.length; i++)
         {
             var ColA = this.GetCollision();
@@ -216,6 +239,13 @@ var BadGuy = function(InPosition)
 
                 HitTexts.push(new AnimatedText(this.Position.X, this.Position.Y, DamageDealt.toString()));
 
+                for (var i = 0; i < 16; i++)
+                {
+                    var Dir = CircularRandomPlot(10.0);
+                    var Lifespan = 0.5 - RandomFloat(0.0, 0.5);
+                    AddParticle(this.Position.X, this.Position.Y, Dir, "#0000FF", Lifespan);
+                }
+
                 break;
             }
         }
@@ -225,9 +255,12 @@ var BadGuy = function(InPosition)
             this.Dead = true;
             BadGuys.push(new BadGuy(new Vector2(RandomInt(0, DefaultCanvasWidth), RandomInt(0, DefaultCanvasHeight))));
 
-
-
-            AddParticle(this.Position.X, this.Position.Y, 5.0);   
+            for (var i = 0; i < 32; i++)
+            {
+                var Dir = CircularRandomPlot(100.0);
+                var Lifespan = 1.0 - RandomFloat(0.0, 1.0);
+                AddParticle(this.Position.X, this.Position.Y, Dir, "#FF0000", Lifespan);
+            }
         }
     }
 
@@ -284,7 +317,7 @@ RandomInt(Min, Max)
 function
 RandomFloat(Min, Max)
 {
-    return Math.random() * (Min - Max) + Min;
+    return Math.random() * (Max - Min) + Min;
 }
 
 function
@@ -293,6 +326,9 @@ CircularRandomPlot(Radius)
     var TestX = RandomFloat(0.0, 1.0) * 2.0 * Radius - Radius;
     var YLimit = Math.sqrt(Radius * Radius - TestX * TestX);
     var TestY = RandomFloat(0.0, 1.0) * 2.0 * YLimit - YLimit;
+
+//    console.log(TestX);
+//    console.log(TestY);
 
     return new Vector2(TestX, TestY);
 }
@@ -309,6 +345,16 @@ UpdateProjectiles(DeltaTime)
         if (Bullets[i].Dead)
         {
             MarkedDead.push(i);
+        }
+        else
+        {
+            if (RandomInt(0, 5) == 0)
+            {
+                var Dir = new Vector2(
+                    Bullets[i].Direction.X + RandomFloat(-1.0, 1.0) * 10.0, 
+                    Bullets[i].Direction.Y + RandomFloat(-1.0, 1.0) * 10.0);
+                AddParticle(Bullets[i].Position.X, Bullets[i].Position.Y, Dir, "#0000FF", RandomFloat(0.0, 1.0));
+            }
         }
     }
 
@@ -338,6 +384,13 @@ UpdatePlayer(DeltaTime)
     PlayerPosition.Y += 0.5 * PlayerDirection.Y * Math.pow(DeltaTime, 2) + PlayerVelocity.Y * DeltaTime;
     PlayerVelocity.X = PlayerDirection.X * DeltaTime + PlayerVelocity.X;
     PlayerVelocity.Y = PlayerDirection.Y * DeltaTime + PlayerVelocity.Y;
+
+    if (RandomFloat(0.0, 1.0) > 0.5)
+    {
+        var Dir = new Vector2(RandomFloat(-5.0, 5.0), 10.0);
+        AddParticle(PlayerPosition.X, PlayerPosition.Y, Dir, "#00FF00", RandomFloat(0.0, 1.0));
+        //console.log(Dir);
+    }
 }
 
 function
@@ -382,7 +435,7 @@ UpdateBadGuys(DeltaTime)
 }
 
 function
-AddParticle(X, Y, Lifespan)
+AddParticle(X, Y, Direction, Color, Lifespan)
 {
     // Trying something a little different like I do in C to avoid having
     // to use lists that make memory allocate and unallocate every frame
@@ -392,8 +445,9 @@ AddParticle(X, Y, Lifespan)
         {
             Particles[i].Position.X = X;
             Particles[i].Position.Y = Y;
-            //Particles[i].Direction.X = DirectionX;
-            //Particles[i].Direction.Y = DirectionY;
+            Particles[i].Direction.X = Direction.X;
+            Particles[i].Direction.Y = Direction.Y;
+            Particles[i].Color = Color;
             Particles[i].Lifespan = Lifespan;
             break;
         }
@@ -577,7 +631,7 @@ InitParticles()
 {
     for (var i = 0; i < MaxParticles; i++)
     {
-        Particles[i] = new Particle(0.0, 0.0, 0.0);
+        Particles[i] = new Particle(0.0, 0.0, new Vector2(0.0, 0.0), "#000000", 0.0);
     }
 }
 
