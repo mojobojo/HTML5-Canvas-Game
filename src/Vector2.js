@@ -61,3 +61,18 @@ Vector2_Normalize(A)
 
     return RetVal;
 }
+
+function
+Vector2_UnaryMinus(A)
+{
+    var ReturnValue = new Vector2(0.0, 0.0);
+    ReturnValue.X = -A.X;
+    ReturnValue.Y = -A.Y;
+    return ReturnValue;
+}
+
+function
+Vector2_Distance(A, B)
+{
+    return Vector2_Length(Vector2_Subtract(A, B));
+}

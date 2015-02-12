@@ -70,13 +70,12 @@ UpdateParticles(DeltaTime)
 {
     for (var i = 0; i < MaxParticles; i++)
     {
+        Particles[i].Lifespan -= DeltaTime;
+
         if (Particles[i].Lifespan > 0.0)
         {
-            Particles[i].Position.X += Particles[i].Direction.X * DeltaTime * Particles[i].Speed;
-            Particles[i].Position.Y += Particles[i].Direction.Y * DeltaTime * Particles[i].Speed;
+            Particles[i].Position = Vector2_Add(Particles[i].Position, Vector2_MultiplyByScalar(Particles[i].Direction, Particles[i].Speed * DeltaTime));            
         }
-
-        Particles[i].Lifespan -= DeltaTime;
     }
 }
 
@@ -238,11 +237,7 @@ UpdateProjectiles(DeltaTime)
             AddParticle(Bullets[i].Position.X, Bullets[i].Position.Y, Dir, "#0000FF", RandomFloat(0.0, 1.0));
         }
 
-        var FinalPos = new Vector2(0.0, 0.0);
-        FinalPos.X = Bullets[i].Direction.X;
-        FinalPos.Y = Bullets[i].Direction.Y;
-
-        FinalPos = Vector2_MultiplyByScalar(FinalPos, Bullets[i].Speed * DeltaTime);
+        var FinalPos = Vector2_MultiplyByScalar(Bullets[i].Direction, Bullets[i].Speed * DeltaTime);
         Bullets[i].Position = Vector2_Add(Bullets[i].Position, FinalPos);
 
         Bullets[i].Dead = false;  
@@ -315,34 +310,22 @@ UpdateBadGuys(DeltaTime)
             continue;
         }
 
-        var LastPosition = new Vector2(PlayerPosition.X, PlayerPosition.Y);
-        var Bleh = new Vector2(PlayerPosition.X, PlayerPosition.Y);
+        var DistanceFromPlayer = Vector2_Distance(PlayerPosition, BadGuys[i].Position);
 
-        Bleh.X = Bleh.X - BadGuys[i].Position.X;
-        Bleh.Y = Bleh.Y - BadGuys[i].Position.Y;
-
-        var BlehLen = Vector2_Length(Bleh);
-
-        if (BlehLen <= 10.0)
+        // HACK: This really just keeps the baddie from getting to close and freaking out
+        if (DistanceFromPlayer <= 10.0)
         {
             continue;
         }
         
-        var Normal = Vector2_Normalize(Bleh);
+        BadGuys[i].Direction = Vector2_MultiplyByScalar(Vector2_Normalize(Vector2_Subtract(PlayerPosition, BadGuys[i].Position)), BadGuys[i].Speed);
+        BadGuys[i].Direction = Vector2_Add(BadGuys[i].Direction, Vector2_MultiplyByScalar(Vector2_UnaryMinus(BadGuys[i].Velocity), 5.0));
 
-        BadGuys[i].Direction.X = Normal.X;
-        BadGuys[i].Direction.Y = Normal.Y;
+        var Vec1 = Vector2_MultiplyByScalar(BadGuys[i].Direction, 0.5 * Math.pow(DeltaTime, 2));
+        var Vec2 = Vector2_Add(Vec1, Vector2_MultiplyByScalar(BadGuys[i].Velocity, DeltaTime));
 
-        BadGuys[i].Direction = Vector2_MultiplyByScalar(BadGuys[i].Direction, BadGuys[i].Speed);
-
-        // TODO: Really need to get vector math working
-        BadGuys[i].Direction.X += 5.0 * -BadGuys[i].Velocity.X;
-        BadGuys[i].Direction.Y += 5.0 * -BadGuys[i].Velocity.Y;
-
-        BadGuys[i].Position.X += 0.5 * BadGuys[i].Direction.X * Math.pow(DeltaTime, 2) + BadGuys[i].Velocity.X * DeltaTime;
-        BadGuys[i].Position.Y += 0.5 * BadGuys[i].Direction.Y * Math.pow(DeltaTime, 2) + BadGuys[i].Velocity.Y * DeltaTime;
-        BadGuys[i].Velocity.X = BadGuys[i].Direction.X * DeltaTime + BadGuys[i].Velocity.X;
-        BadGuys[i].Velocity.Y = BadGuys[i].Direction.Y * DeltaTime + BadGuys[i].Velocity.Y;
+        BadGuys[i].Position = Vector2_Add(BadGuys[i].Position, Vec2);
+        BadGuys[i].Velocity = Vector2_Add(BadGuys[i].Velocity, Vector2_MultiplyByScalar(BadGuys[i].Direction, DeltaTime));        
 
         if (RandomFloat(0.0, 1.0) > 0.5)
         {
@@ -366,8 +349,7 @@ UpdateBadGuys(DeltaTime)
                 Bullets[j].Lifespan = 0.0;
                 Bullets[j].Dead = true;
 
-                BadGuys[i].Velocity.X = -BadGuys[i].Velocity.X;
-                BadGuys[i].Velocity.Y = -BadGuys[i].Velocity.Y;
+                BadGuys[i].Velocity = Vector2_UnaryMinus(BadGuys[i].Velocity);                
 
                 var DamageDealt = 0.1;
                 BadGuys[i].Health -= DamageDealt;
@@ -472,15 +454,13 @@ function
 UpdatePlayer(DeltaTime)
 {
     PlayerDirection = Vector2_MultiplyByScalar(PlayerDirection, PlayerSpeed);
+    PlayerDirection = Vector2_Add(PlayerDirection, Vector2_MultiplyByScalar(Vector2_UnaryMinus(PlayerVelocity), 4.0));
 
-    // TODO: Really need to get vector math working
-    PlayerDirection.X += 5.0 * -PlayerVelocity.X;
-    PlayerDirection.Y += 5.0 * -PlayerVelocity.Y;
+    var Vec1 = Vector2_MultiplyByScalar(PlayerDirection, 0.5 * Math.pow(DeltaTime, 2));
+    var Vec2 = Vector2_Add(Vec1, Vector2_MultiplyByScalar(PlayerVelocity, DeltaTime));
 
-    PlayerPosition.X += 0.5 * PlayerDirection.X * Math.pow(DeltaTime, 2) + PlayerVelocity.X * DeltaTime;
-    PlayerPosition.Y += 0.5 * PlayerDirection.Y * Math.pow(DeltaTime, 2) + PlayerVelocity.Y * DeltaTime;
-    PlayerVelocity.X = PlayerDirection.X * DeltaTime + PlayerVelocity.X;
-    PlayerVelocity.Y = PlayerDirection.Y * DeltaTime + PlayerVelocity.Y;
+    PlayerPosition = Vector2_Add(PlayerPosition, Vec2);
+    PlayerVelocity = Vector2_Add(PlayerVelocity, Vector2_MultiplyByScalar(PlayerDirection, DeltaTime));    
 
     if (RandomFloat(0.0, 1.0) > 0.5)
     {
@@ -655,7 +635,7 @@ function
 StartGame()
 {
     InitEverything();
-    
+
     AddBadGuy(new Vector2(RandomInt(0, DefaultCanvasWidth), RandomInt(0, DefaultCanvasHeight)));
 
     document.addEventListener("keydown", KeyDown, false);
