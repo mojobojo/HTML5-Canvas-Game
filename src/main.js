@@ -1,3 +1,11 @@
+/*
+    Some reference stuff:
+
+        - https://developers.google.com/speed/articles/optimizing-javascript
+
+    NOTE: Still have not found on the new operator on how garbage collection works 
+*/
+
 var DefaultCanvasWidth = 1280;
 var DefaultCanvasHeight = 720;
 
@@ -31,12 +39,17 @@ var DirectionCopy = new Vector2(0.0, 0.0);
 // TODO: I think I want to make Bullets, Badguys, and HitTexts a static sized array
 // instead of a dynamic one to reduce the amount of "new" operations
 
-var Bullets = []
+var MaxBullets = 32;
+var Bullets = [];
+
 var BulletFireSpeed = 0.5;
 var BulletFireSpeedTimer = 0.0;
 var ReadyToShoot = false;
 
+var MaxBadGuys = 32;
 var BadGuys = [];
+
+var MaxHitTexts = 32;
 var HitTexts = [];
 
 var MaxParticles = 256;
@@ -50,61 +63,122 @@ var Particle = function(X, Y, Direction, Color, InLifespan)
     this.Color = Color;
     this.Speed = 5.0;
     this.HasGravity = false;
+}
 
-    this.Update = function(DeltaTime)
+function
+UpdateParticles(DeltaTime)
+{
+    for (var i = 0; i < MaxParticles; i++)
     {
-        if (this.Lifespan > 0.0)
+        if (Particles[i].Lifespan > 0.0)
         {
-            this.Position.X += this.Direction.X * DeltaTime * this.Speed;
-            this.Position.Y += this.Direction.Y * DeltaTime * this.Speed;
+            Particles[i].Position.X += Particles[i].Direction.X * DeltaTime * Particles[i].Speed;
+            Particles[i].Position.Y += Particles[i].Direction.Y * DeltaTime * Particles[i].Speed;
         }
 
-        this.Lifespan -= DeltaTime;
+        Particles[i].Lifespan -= DeltaTime;
     }
+}
 
-    this.Render = function()
+function
+RenderParticles()
+{
+    for (var i = 0; i < MaxParticles; i++)
     {
-        if (this.Lifespan > 0.0)
+        if (Particles[i].Lifespan > 0.0)
         {
-            // I dont know why but for some reason I need to set fill style here too to get it to register
-            Context.fillStyle = this.Color;
-            DrawFilledRectangle(this.Position.X, this.Position.Y, 4, 4, this.Color);
+            DrawFilledRectangle(Particles[i].Position.X, Particles[i].Position.Y, 4, 4, true, Particles[i].Color);
         }
     }
 }
 
-var AnimatedText = function(X, Y, InText)
+function
+AddParticle(X, Y, Direction, Color, Lifespan)
 {
-    this.Position = new Vector2(X, Y);
+    // Trying something a little different like I do in C to avoid having
+    // to use lists that make memory allocate and unallocate every frame
+    for (var i = 0; i < MaxParticles; i++)
+    {
+        if (Particles[i].Lifespan <= 0.0)
+        {
+            Particles[i].Position.X = X;
+            Particles[i].Position.Y = Y;
+            Particles[i].Direction.X = Direction.X;
+            Particles[i].Direction.Y = Direction.Y;
+            Particles[i].Color = Color;
+            Particles[i].Lifespan = Lifespan;
+            break;
+        }
+    }
+}
+
+function
+AddExplosion(Count, Position, Color, Radius)
+{
+    for (var i = 0; i < Count; i++)
+    {
+        var Dir = CircularRandomPlot(Radius);
+        var Lifespan = 0.5 - RandomFloat(0.0, 0.5);
+        AddParticle(Position.X, Position.Y, Dir, Color, Lifespan);
+    }
+}
+
+var AnimatedText = function(InPosition, InText)
+{
+    this.Position = new Vector2(InPosition.X, InPosition.Y);
     this.Text = InText;
     this.Lifespan = 0.5;
     this.Dead = false;
     this.Speed = 1000.0;
-
     this.YVelocity = 0.0;
+}
 
-    this.Update = function(DeltaTime)
+function
+AddHitText(Position, InText)
+{
+    for (var i = 0; i < MaxHitTexts; i++)
     {
-        if (this.Lifespan <= 0.0)
+        if (HitTexts[i].Dead)
         {
-            this.Dead = true;
+            HitTexts[i].Position = new Vector2(Position.X, Position.Y);
+            HitTexts[i].Text = InText;
+            HitTexts[i].Lifespan = 0.5;
+            HitTexts[i].Dead = false;
+            HitTexts[i].Speed = 1000.0;
+            HitTexts[i].YVelocity = 0.0;
+            return;
+        }
+    }
+}
+
+function
+UpdateHitTexts(DeltaTime)
+{
+    for (var i = 0; i < MaxHitTexts; i++)
+    {
+        if (HitTexts[i].Lifespan <= 0.0)
+        {
+            HitTexts[i].Dead = true;
+            continue;
         }
 
-        var YDirection = -1.0 * this.Speed;
+        var YDirection = -1.0 * HitTexts[i].Speed;
 
-        this.Position.Y += 0.5 * YDirection * Math.pow(DeltaTime, 2) + this.YVelocity * DeltaTime;
-        this.YVelocity = YDirection * DeltaTime + this.YVelocity;
+        HitTexts[i].Position.Y += 0.5 * YDirection * Math.pow(DeltaTime, 2) + HitTexts[i].YVelocity * DeltaTime;
+        HitTexts[i].YVelocity = YDirection * DeltaTime + HitTexts[i].YVelocity;
 
-        this.Lifespan -= DeltaTime;
+        HitTexts[i].Lifespan -= DeltaTime;
     }
+}
 
-    this.Render = function()
+function
+RenderHitTexts()
+{
+    for (var i = 0; i < MaxHitTexts; i++)
     {
-        if (!this.Dead)
+        if (!HitTexts[i].Dead)
         {
-            // TODO: Figure out why I have to set the color twice
-            Context.fillStyle = "#FFF000";
-            DrawText(this.Position.X, this.Position.Y, this.Text, true, "#FFF000");
+            DrawText(HitTexts[i].Position.X, HitTexts[i].Position.Y, HitTexts[i].Text, "#FFF000");
         }
     }
 }
@@ -126,34 +200,97 @@ var Projectile = function(InLifespan, InDirection, InPosition)
     this.Speed = 256.0;
     this.CollisionRect = new Rectangle(0, 0, 4, 4);
 
-    this.Update = function(DeltaTime)
+    this.GetCollision = function()
     {
-        if (this.Lifespan > 0.0)
-        {
-            var FinalPos = new Vector2(0.0, 0.0);
-            FinalPos.X = this.Direction.X;
-            FinalPos.Y = this.Direction.Y;
+        var RetVal = new Rectangle(
+            this.Position.X - (0.5 * this.CollisionRect.Width), 
+            this.Position.Y - (0.5 * this.CollisionRect.Height), 
+            this.CollisionRect.Width, 
+            this.CollisionRect.Height
+            );
 
-            FinalPos.MultiplyByScalar(DeltaTime * this.Speed);
-            this.Position.Add(FinalPos);
-
-            this.Dead = false;  
-        }
-        else
-        {
-            this.Dead = true;
-        }
-
-        this.Lifespan -= DeltaTime;
+        return RetVal;
     }
+}
 
-    this.Render = function()
+function
+UpdateProjectiles(DeltaTime)
+{
+    for (var i = 0; i < MaxBullets; i++)
     {
-        if (this.Lifespan > 0.0)
+        Bullets[i].Lifespan -= DeltaTime;
+
+        if (Bullets[i].Lifespan <= 0.0)
         {
-            DrawFilledRectangle(this.Position.X, this.Position.Y, this.CollisionRect.Width, this.CollisionRect.Height, true, "#0000FF");
+            Bullets[i].Dead = true;
+        }
+
+        if (Bullets[i].Dead)
+        {
+            continue;
+        }
+
+        if (RandomInt(0, 5) == 0)
+        {
+            var Dir = new Vector2(
+                Bullets[i].Direction.X + RandomFloat(-1.0, 1.0) * 10.0, 
+                Bullets[i].Direction.Y + RandomFloat(-1.0, 1.0) * 10.0);
+            AddParticle(Bullets[i].Position.X, Bullets[i].Position.Y, Dir, "#0000FF", RandomFloat(0.0, 1.0));
+        }
+
+        var FinalPos = new Vector2(0.0, 0.0);
+        FinalPos.X = Bullets[i].Direction.X;
+        FinalPos.Y = Bullets[i].Direction.Y;
+
+        FinalPos = Vector2_MultiplyByScalar(FinalPos, Bullets[i].Speed * DeltaTime);
+        Bullets[i].Position = Vector2_Add(Bullets[i].Position, FinalPos);
+
+        Bullets[i].Dead = false;  
+    }
+}
+
+function
+RenderBullets()
+{
+    for (var i = 0; i < MaxBullets; i++)
+    {
+        if (Bullets[i].Lifespan <= 0.0 || Bullets[i].Dead)
+        {
+            continue;
+        }
+
+        DrawFilledRectangle(
+            Bullets[i].Position.X, Bullets[i].Position.Y, 
+            Bullets[i].CollisionRect.Width, Bullets[i].CollisionRect.Height, true, "#0000FF");
+    }
+}
+
+function
+AddBullet(Lifespan, ShootDirection, PlayerPosition)
+{
+    Bullets.push(new Projectile(5.0, ShootDirection, PlayerPosition));
+    for (var i = 0; i < MaxBullets; i++)
+    {
+        if (Bullets[i].Dead)
+        {
+            Bullets[i].Lifespan = Lifespan;
+            Bullets[i].Direction = new Vector2(ShootDirection.X, ShootDirection.Y);
+            Bullets[i].Position = new Vector2(PlayerPosition.X, PlayerPosition.Y);
+            Bullets[i].Dead = false;
+            break;
         }
     }
+}
+
+var BadGuy = function(InPosition)
+{
+    this.Position = InPosition;
+    this.Direction = new Vector2(0.0, 0.0);
+    this.Velocity = new Vector2(0.0, 0.0);
+    this.Speed = 500.0;
+    this.CollisionRect = new Rectangle(0, 0, 32, 32);
+    this.Health = 1.0;
+    this.Dead = false;
 
     this.GetCollision = function()
     {
@@ -168,117 +305,118 @@ var Projectile = function(InLifespan, InDirection, InPosition)
     }
 }
 
-var BadGuy = function(InPosition)
+function
+UpdateBadGuys(DeltaTime)
 {
-    this.Position = InPosition;
-    this.Direction = new Vector2(0.0, 0.0);
-    this.Velocity = new Vector2(0.0, 0.0);
-    this.Speed = 500.0;
-    this.CollisionRect = new Rectangle(0, 0, 32, 32);
-    this.Health = 1.0;
-    this.Dead = false;
-
-    this.Update = function(DeltaTime)
+    for (var i = 0; i < MaxBadGuys; i++)
     {
-        if (this.Dead)
+        if (BadGuys[i].Dead)
         {
-            return;
+            continue;
         }
 
         var LastPosition = new Vector2(PlayerPosition.X, PlayerPosition.Y);
         var Bleh = new Vector2(PlayerPosition.X, PlayerPosition.Y);
 
-        Bleh.X = Bleh.X - this.Position.X;
-        Bleh.Y = Bleh.Y - this.Position.Y;
+        Bleh.X = Bleh.X - BadGuys[i].Position.X;
+        Bleh.Y = Bleh.Y - BadGuys[i].Position.Y;
 
-        if (Bleh.Length() <= 10.0)
+        var BlehLen = Vector2_Length(Bleh);
+
+        if (BlehLen <= 10.0)
         {
-            return;
+            continue;
         }
         
-        var Normal = Bleh.Normalize();
+        var Normal = Vector2_Normalize(Bleh);
 
-        this.Direction.X = Normal.X;
-        this.Direction.Y = Normal.Y;
+        BadGuys[i].Direction.X = Normal.X;
+        BadGuys[i].Direction.Y = Normal.Y;
 
-        this.Direction.MultiplyByScalar(this.Speed);
+        BadGuys[i].Direction = Vector2_MultiplyByScalar(BadGuys[i].Direction, BadGuys[i].Speed);
 
         // TODO: Really need to get vector math working
-        this.Direction.X += 5.0 * -this.Velocity.X;
-        this.Direction.Y += 5.0 * -this.Velocity.Y;
+        BadGuys[i].Direction.X += 5.0 * -BadGuys[i].Velocity.X;
+        BadGuys[i].Direction.Y += 5.0 * -BadGuys[i].Velocity.Y;
 
-        this.Position.X += 0.5 * this.Direction.X * Math.pow(DeltaTime, 2) + this.Velocity.X * DeltaTime;
-        this.Position.Y += 0.5 * this.Direction.Y * Math.pow(DeltaTime, 2) + this.Velocity.Y * DeltaTime;
-        this.Velocity.X = this.Direction.X * DeltaTime + this.Velocity.X;
-        this.Velocity.Y = this.Direction.Y * DeltaTime + this.Velocity.Y;
+        BadGuys[i].Position.X += 0.5 * BadGuys[i].Direction.X * Math.pow(DeltaTime, 2) + BadGuys[i].Velocity.X * DeltaTime;
+        BadGuys[i].Position.Y += 0.5 * BadGuys[i].Direction.Y * Math.pow(DeltaTime, 2) + BadGuys[i].Velocity.Y * DeltaTime;
+        BadGuys[i].Velocity.X = BadGuys[i].Direction.X * DeltaTime + BadGuys[i].Velocity.X;
+        BadGuys[i].Velocity.Y = BadGuys[i].Direction.Y * DeltaTime + BadGuys[i].Velocity.Y;
 
         if (RandomFloat(0.0, 1.0) > 0.5)
         {
             var Dir = new Vector2(RandomFloat(-5.0, 5.0), 10.0);
-            AddParticle(this.Position.X, this.Position.Y, Dir, "#FF0000", RandomFloat(0.0, 1.0));
+            AddParticle(BadGuys[i].Position.X, BadGuys[i].Position.Y, Dir, "#FF0000", RandomFloat(0.0, 1.0));
         }
 
         // Bullet collisions
-        for (var i = 0; i < Bullets.length; i++)
+        for (var j = 0; j < MaxBullets; j++)
         {
-            var ColA = this.GetCollision();
-            var ColB = Bullets[i].GetCollision();
+            if (Bullets[j].Dead)
+            {
+                continue;
+            }
+
+            var ColA = BadGuys[i].GetCollision();
+            var ColB = Bullets[j].GetCollision();
 
             if (DoesRectangleIntersectAnother(ColA, ColB))
             {
-                Bullets[i].Lifespan = 0.0;
-                Bullets[i].Dead = true;
+                Bullets[j].Lifespan = 0.0;
+                Bullets[j].Dead = true;
 
-                // Serioulsy works and I dont know why. When bullet collides baddie moves in the right direction wtf
-                // this code shouldnt work
-                this.Velocity.X = -this.Velocity.X;
-                this.Velocity.Y = -this.Velocity.Y;
+                BadGuys[i].Velocity.X = -BadGuys[i].Velocity.X;
+                BadGuys[i].Velocity.Y = -BadGuys[i].Velocity.Y;
 
                 var DamageDealt = 0.1;
-                this.Health -= DamageDealt;
+                BadGuys[i].Health -= DamageDealt;
 
-                HitTexts.push(new AnimatedText(this.Position.X, this.Position.Y, DamageDealt.toString()));
+                AddHitText(BadGuys[i].Position, DamageDealt.toString());
 
-                for (var i = 0; i < 16; i++)
-                {
-                    var Dir = CircularRandomPlot(10.0);
-                    var Lifespan = 0.5 - RandomFloat(0.0, 0.5);
-                    AddParticle(this.Position.X, this.Position.Y, Dir, "#0000FF", Lifespan);
-                }
+                AddExplosion(16, BadGuys[i].Position, "#0000FF", 10.0);
 
                 break;
             }
         }
 
-        if (this.Health <= 0.0)
+        if (BadGuys[i].Health <= 0.0 && !BadGuys[i].Dead)
         {
-            this.Dead = true;
-            BadGuys.push(new BadGuy(new Vector2(RandomInt(0, DefaultCanvasWidth), RandomInt(0, DefaultCanvasHeight))));
-
-            for (var i = 0; i < 32; i++)
-            {
-                var Dir = CircularRandomPlot(100.0);
-                var Lifespan = 1.0 - RandomFloat(0.0, 1.0);
-                AddParticle(this.Position.X, this.Position.Y, Dir, "#FF0000", Lifespan);
-            }
+            BadGuys[i].Dead = true;
+            AddExplosion(32, BadGuys[i].Position, "#FF0000", 100.0);
+            AddBadGuy(new Vector2(RandomInt(0, DefaultCanvasWidth), RandomInt(0, DefaultCanvasHeight)));
         }
     }
+}
 
-    this.Render = function()
+function
+RenderBadGuys()
+{
+    for (var i = 0; i < MaxBadGuys; i++)
     {
-        DrawFilledRectangle(this.Position.X, this.Position.Y, this.CollisionRect.Width, this.CollisionRect.Height, true, "#FF0000");    
+        if (BadGuys[i].Dead)
+        {
+            continue;
+        }
+
+        DrawFilledRectangle(
+            BadGuys[i].Position.X, BadGuys[i].Position.Y, 
+            BadGuys[i].CollisionRect.Width, BadGuys[i].CollisionRect.Height, true, "#FF0000");    
     }
+}
 
-    this.GetCollision = function()
+function
+AddBadGuy(Position)
+{
+    for (var i = 0; i < MaxBadGuys; i++)
     {
-        var RetVal = new Rectangle(
-            this.Position.X - (0.5 * this.CollisionRect.Width), 
-            this.Position.Y - (0.5 * this.CollisionRect.Height), 
-            this.CollisionRect.Width, 
-            this.CollisionRect.Height
-            );
-
-        return RetVal;
+        if (BadGuys[i].Dead)
+        {
+            BadGuys[i].Dead = false;
+            BadGuys[i].Position = new Vector2(Position.X, Position.Y);
+            BadGuys[i].Health = 1.0;
+            break;
+        }
     }
 }
 
@@ -327,54 +465,13 @@ CircularRandomPlot(Radius)
     var YLimit = Math.sqrt(Radius * Radius - TestX * TestX);
     var TestY = RandomFloat(0.0, 1.0) * 2.0 * YLimit - YLimit;
 
-//    console.log(TestX);
-//    console.log(TestY);
-
     return new Vector2(TestX, TestY);
-}
-
-function
-UpdateProjectiles(DeltaTime)
-{
-    var MarkedDead = [];
-
-    for (var i = 0; i < Bullets.length; i++)
-    {
-        Bullets[i].Update(DeltaTime);
-
-        if (Bullets[i].Dead)
-        {
-            MarkedDead.push(i);
-        }
-        else
-        {
-            if (RandomInt(0, 5) == 0)
-            {
-                var Dir = new Vector2(
-                    Bullets[i].Direction.X + RandomFloat(-1.0, 1.0) * 10.0, 
-                    Bullets[i].Direction.Y + RandomFloat(-1.0, 1.0) * 10.0);
-                AddParticle(Bullets[i].Position.X, Bullets[i].Position.Y, Dir, "#0000FF", RandomFloat(0.0, 1.0));
-            }
-        }
-    }
-
-    for (var i = 0; i < MarkedDead.length; i++)
-    {
-        Bullets.splice(MarkedDead[i], 1);        
-    }
-
-    BulletFireSpeedTimer -= DeltaTime;
-
-    if (BulletFireSpeedTimer <= 0.0)
-    {
-        ReadyToShoot = true;
-    }
 }
 
 function
 UpdatePlayer(DeltaTime)
 {
-    PlayerDirection.MultiplyByScalar(PlayerSpeed);
+    PlayerDirection = Vector2_MultiplyByScalar(PlayerDirection, PlayerSpeed);
 
     // TODO: Really need to get vector math working
     PlayerDirection.X += 5.0 * -PlayerVelocity.X;
@@ -389,78 +486,37 @@ UpdatePlayer(DeltaTime)
     {
         var Dir = new Vector2(RandomFloat(-5.0, 5.0), 10.0);
         AddParticle(PlayerPosition.X, PlayerPosition.Y, Dir, "#00FF00", RandomFloat(0.0, 1.0));
-        //console.log(Dir);
     }
 }
 
 function
-UpdateHitTexts(DeltaTime)
+DrawFilledRectangle(X, Y, Width, Height, Centered, Color)
 {
-    var DeadTexts = [];
-    for (var i = 0; i < HitTexts.length; i++)
-    {
-        HitTexts[i].Update(DeltaTime);
+    var RealX = X;
+    var RealY = Y;
 
-        if (HitTexts[i].Dead)
-        {
-            DeadTexts.push(i);
-        }
+    if (Centered)
+    {
+        RealX -= 0.5 * Width;
+        RealY -= 0.5 * Height;
     }
 
-    for (var i = 0; i < DeadTexts.length; i++)
-    {
-        HitTexts.splice(DeadTexts[i], 1);        
-    }
+    Context.fillStyle = Color;
+    Context.fillRect(RealX, RealY, Width, Height);
 }
 
 function
-UpdateBadGuys(DeltaTime)
+DrawText(X, Y, Str, Color)
 {
-    var DeadGuys = [];
-    for (var i = 0; i < BadGuys.length; i++)
-    {
-        BadGuys[i].Update(DeltaTime);
-
-        if (BadGuys[i].Dead)
-        {
-            DeadGuys.push(i);
-        }
-    }
-
-    for (var i = 0; i < DeadGuys.length; i++)
-    {
-        BadGuys.splice(DeadGuys[i], 1);        
-    }
-
+    Context.font = "20px Georgia";
+    Context.fillStyle = Color;
+    Context.fillText(Str, X, Y);
 }
 
 function
-AddParticle(X, Y, Direction, Color, Lifespan)
+RenderPlayer()
 {
-    // Trying something a little different like I do in C to avoid having
-    // to use lists that make memory allocate and unallocate every frame
-    for (var i = 0; i < MaxParticles; i++)
-    {
-        if (Particles[i].Lifespan <= 0.0)
-        {
-            Particles[i].Position.X = X;
-            Particles[i].Position.Y = Y;
-            Particles[i].Direction.X = Direction.X;
-            Particles[i].Direction.Y = Direction.Y;
-            Particles[i].Color = Color;
-            Particles[i].Lifespan = Lifespan;
-            break;
-        }
-    }
-}
-
-function
-UpdateParticles(DeltaTime)
-{
-    for (var i = 0; i < MaxParticles; i++)
-    {
-        Particles[i].Update(DeltaTime);
-    }
+    DrawFilledRectangle(PlayerPosition.X, PlayerPosition.Y, 32, 32, true, "#00FF00");
 }
 
 function
@@ -496,35 +552,42 @@ Update(DeltaTime)
             ShootingProjectile = true;
             BulletFireSpeedTimer = BulletFireSpeed;
             ReadyToShoot = false;
-            Bullets.push(new Projectile(2.0, ShootDirection, PlayerPosition));
+            AddBullet(5.0, ShootDirection, PlayerPosition);
         }
-        if (Keys[KEY_DOWN] == true)
+        else if (Keys[KEY_DOWN] == true)
         {
             ShootDirection.X = 0.0;
             ShootDirection.Y = 1.0;
             ShootingProjectile = true;
             BulletFireSpeedTimer = BulletFireSpeed;
             ReadyToShoot = false;
-            Bullets.push(new Projectile(2.0, ShootDirection, PlayerPosition));
+            AddBullet(5.0, ShootDirection, PlayerPosition);
         }
-        if (Keys[KEY_LEFT] == true)
+        else if (Keys[KEY_LEFT] == true)
         {
             ShootDirection.X = -1.0;
             ShootDirection.Y = 0.0;
             ShootingProjectile = true;
             BulletFireSpeedTimer = BulletFireSpeed;
             ReadyToShoot = false;
-            Bullets.push(new Projectile(2.0, ShootDirection, PlayerPosition));
+            AddBullet(5.0, ShootDirection, PlayerPosition);
         }
-        if (Keys[KEY_RIGHT] == true)
+        else if (Keys[KEY_RIGHT] == true)
         {
             ShootDirection.X = 1.0;
             ShootDirection.Y = 0.0;
             ShootingProjectile = true;
             BulletFireSpeedTimer = BulletFireSpeed;
             ReadyToShoot = false;
-            Bullets.push(new Projectile(2.0, ShootDirection, PlayerPosition));
+            AddBullet(5.0, ShootDirection, PlayerPosition);
         }
+    }
+
+    BulletFireSpeedTimer -= DeltaTime;
+
+    if (BulletFireSpeedTimer <= 0.0)
+    {
+        ReadyToShoot = true;
     }
 
     UpdateBadGuys(DeltaTime);
@@ -532,72 +595,6 @@ Update(DeltaTime)
     UpdatePlayer(DeltaTime);
     UpdateHitTexts(DeltaTime);
     UpdateParticles(DeltaTime);
-}
-
-function
-DrawFilledRectangle(X, Y, Width, Height, Centered, Color)
-{
-    var RealX = X;
-    var RealY = Y;
-
-    if (Centered)
-    {
-        RealX -= 0.5 * Width;
-        RealY -= 0.5 * Height;
-    }
-
-    Context.fillStyle = Color;
-    Context.fillRect(RealX, RealY, Width, Height);
-}
-
-function
-DrawText(X, Y, Str, Color)
-{
-    Context.font = "20px Georgia";
-    Context.fillStyle = Color;
-    Context.fillText(Str, X, Y);
-}
-
-function
-RenderBullets()
-{
-    for (var i = 0; i < Bullets.length; i++)
-    {
-        Bullets[i].Render();
-    }
-}
-
-function
-RenderPlayer()
-{
-    DrawFilledRectangle(PlayerPosition.X, PlayerPosition.Y, 32, 32, true, "#00FF00");
-}
-
-function
-RenderBadGuys()
-{
-    for (var i = 0; i < BadGuys.length; i++)
-    {
-        BadGuys[i].Render();
-    }
-}
-
-function
-RenderParticles()
-{
-    for (var i = 0; i < MaxParticles; i++)
-    {
-        Particles[i].Render();
-    }
-}
-
-function
-RenderHitTexts()
-{
-    for (var i = 0; i < HitTexts.length; i++)
-    {
-        HitTexts[i].Render();
-    }
 }
 
 function
@@ -627,20 +624,40 @@ GameLoop()
 }
 
 function
-InitParticles()
+InitEverything()
 {
+    // Setup particles
     for (var i = 0; i < MaxParticles; i++)
     {
         Particles[i] = new Particle(0.0, 0.0, new Vector2(0.0, 0.0), "#000000", 0.0);
+    }
+
+    for (var i = 0; i < MaxHitTexts; i++)
+    {
+        HitTexts[i] = new AnimatedText(new Vector2(0.0, 0.0), "DefaultText");
+    }
+
+    for (var i = 0; i < MaxBadGuys; i++)
+    {
+        BadGuys[i] = new BadGuy(new Vector2(0.0, 0.0));
+        BadGuys[i].Health = 0.0;
+        BadGuys[i].Dead = true;
+    }
+
+    for (var i = 0; i < MaxBullets; i++)
+    {
+        Bullets[i] = new Projectile(0.0, new Vector2(0.0, 0.0), new Vector2(0.0, 0.0));
+        Bullets[i].Dead = true;
     }
 }
 
 function
 StartGame()
 {
-    InitParticles();
+    InitEverything();
+    
+    AddBadGuy(new Vector2(RandomInt(0, DefaultCanvasWidth), RandomInt(0, DefaultCanvasHeight)));
 
-    BadGuys.push(new BadGuy(new Vector2(300, 300)));
     document.addEventListener("keydown", KeyDown, false);
     document.addEventListener("keyup", KeyUp, false);
     GameLoop();

@@ -4,43 +4,60 @@ var Vector2 = function(XVal, YVal)
 {
     this.X = XVal;
     this.Y = YVal;
+}
 
-    this.Add = function(VecA)
+function
+Vector2_Add(A, B)
+{
+    var ReturnValue = new Vector2(0.0, 0.0);
+
+    ReturnValue.X = A.X + B.X;
+    ReturnValue.Y = A.Y + B.Y;
+
+    return ReturnValue;
+}
+
+function
+Vector2_Subtract(A, B)
+{
+    var ReturnValue = new Vector2(0.0, 0.0);
+
+    ReturnValue.X = A.X - B.X;
+    ReturnValue.Y = A.Y - B.Y;
+
+    return ReturnValue;
+}
+
+function
+Vector2_MultiplyByScalar(A, B)
+{
+    var ReturnValue = new Vector2(0.0, 0.0);
+
+    ReturnValue.X = A.X * B;
+    ReturnValue.Y = A.Y * B;
+
+    return ReturnValue;
+}
+
+function
+Vector2_Length(A)
+{
+    return Math.sqrt(A.X * A.X + A.Y * A.Y);
+}
+
+function
+Vector2_Normalize(A)
+{
+    var RetVal = new Vector2(0.0, 0.0);
+    var Len = Vector2_Length(A);
+    
+    if  (Len == 0.0)
     {
-        this.X += VecA.X;
-        this.Y += VecA.Y;
-    }
-
-    this.Subtract = function(VecA)
-    {
-        this.X -= VecA.X;
-        this.Y -= VecA.Y;
-    }
-
-    this.MultiplyByScalar = function(Num)
-    {
-        this.X *= Num;
-        this.Y *= Num;
-    }
-
-    this.Length = function()
-    {
-        return Math.sqrt(this.X * this.X + this.Y * this.Y);
-    }
-
-    this.Normalize = function()
-    {
-        var RetVal = new Vector2(0.0, 0.0);
-        var Len = this.Length();
-        
-        if  (Len == 0.0)
-        {
-            return RetVal;
-        }
-
-        RetVal.X = this.X / Len;
-        RetVal.Y = this.Y / Len;
-
         return RetVal;
     }
+
+    RetVal.X = A.X / Len;
+    RetVal.Y = A.Y / Len;
+
+    return RetVal;
 }
