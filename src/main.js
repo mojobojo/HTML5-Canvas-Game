@@ -196,8 +196,8 @@ var Projectile = function(InLifespan, InDirection, InPosition)
     this.Direction = InDirection;
     this.Position = new Vector2(InPosition.X, InPosition.Y);
     this.Dead = false;
-    this.Speed = 256.0;
     this.CollisionRect = new Rectangle(0, 0, 4, 4);
+    this.Velocity = new Vector2(0.0, 0.0);
 
     this.GetCollision = function()
     {
@@ -237,7 +237,7 @@ UpdateProjectiles(DeltaTime)
             AddParticle(Bullets[i].Position.X, Bullets[i].Position.Y, Dir, "#0000FF", RandomFloat(0.0, 1.0));
         }
 
-        var FinalPos = Vector2_MultiplyByScalar(Bullets[i].Direction, Bullets[i].Speed * DeltaTime);
+        var FinalPos = Vector2_MultiplyByScalar(Bullets[i].Velocity, DeltaTime);
         Bullets[i].Position = Vector2_Add(Bullets[i].Position, FinalPos);
 
         Bullets[i].Dead = false;  
@@ -261,7 +261,7 @@ RenderBullets()
 }
 
 function
-AddBullet(Lifespan, ShootDirection, PlayerPosition)
+AddBullet(Lifespan, ShootDirection, PlayerPosition, AdditionalVelocity)
 {
     Bullets.push(new Projectile(5.0, ShootDirection, PlayerPosition));
     for (var i = 0; i < MaxBullets; i++)
@@ -272,6 +272,7 @@ AddBullet(Lifespan, ShootDirection, PlayerPosition)
             Bullets[i].Direction = new Vector2(ShootDirection.X, ShootDirection.Y);
             Bullets[i].Position = new Vector2(PlayerPosition.X, PlayerPosition.Y);
             Bullets[i].Dead = false;
+            Bullets[i].Velocity = Vector2_Add(Vector2_MultiplyByScalar(Bullets[i].Direction, 256.0), AdditionalVelocity);
             break;
         }
     }
@@ -349,7 +350,7 @@ UpdateBadGuys(DeltaTime)
                 Bullets[j].Lifespan = 0.0;
                 Bullets[j].Dead = true;
 
-                BadGuys[i].Velocity = Vector2_UnaryMinus(BadGuys[i].Velocity);                
+                BadGuys[i].Velocity = Vector2_Add(BadGuys[i].Velocity,  Bullets[j].Velocity);  //Vector2_UnaryMinus(BadGuys[i].Velocity);                
 
                 var DamageDealt = 0.1;
                 BadGuys[i].Health -= DamageDealt;
@@ -532,7 +533,7 @@ Update(DeltaTime)
             ShootingProjectile = true;
             BulletFireSpeedTimer = BulletFireSpeed;
             ReadyToShoot = false;
-            AddBullet(5.0, ShootDirection, PlayerPosition);
+            AddBullet(5.0, ShootDirection, PlayerPosition, PlayerVelocity);
         }
         else if (Keys[KEY_DOWN] == true)
         {
@@ -541,7 +542,7 @@ Update(DeltaTime)
             ShootingProjectile = true;
             BulletFireSpeedTimer = BulletFireSpeed;
             ReadyToShoot = false;
-            AddBullet(5.0, ShootDirection, PlayerPosition);
+            AddBullet(5.0, ShootDirection, PlayerPosition, PlayerVelocity);
         }
         else if (Keys[KEY_LEFT] == true)
         {
@@ -550,7 +551,7 @@ Update(DeltaTime)
             ShootingProjectile = true;
             BulletFireSpeedTimer = BulletFireSpeed;
             ReadyToShoot = false;
-            AddBullet(5.0, ShootDirection, PlayerPosition);
+            AddBullet(5.0, ShootDirection, PlayerPosition, PlayerVelocity);
         }
         else if (Keys[KEY_RIGHT] == true)
         {
@@ -559,7 +560,7 @@ Update(DeltaTime)
             ShootingProjectile = true;
             BulletFireSpeedTimer = BulletFireSpeed;
             ReadyToShoot = false;
-            AddBullet(5.0, ShootDirection, PlayerPosition);
+            AddBullet(5.0, ShootDirection, PlayerPosition, PlayerVelocity);
         }
     }
 
