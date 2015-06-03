@@ -27,6 +27,9 @@ var KEY_DOWN = 40;
 var KEY_LEFT = 37;
 var KEY_RIGHT = 39;
 
+var MousePosition = new Vector2(100.0, 100.0);
+var LeftMouseDown = false;
+
 // Game relateds variables here
 var CurrentTime = 0;
 var LastTime = Date.now();
@@ -430,6 +433,33 @@ KeyUp(e)
 }
 
 function
+MouseMove(e)
+{
+    var ClientRect = Canvas.getBoundingClientRect();
+    
+    MousePosition.X = e.clientX - ClientRect.left;
+    MousePosition.Y = e.clientY - ClientRect.top;
+}
+
+function
+MouseDown(e)
+{
+    if (e.button == 0)
+    {
+        LeftMouseDown = true;
+    }
+}
+
+function
+MouseUp(e)
+{
+    if (e.button == 0)
+    {
+        LeftMouseDown = false;
+    }
+}
+
+function
 RandomInt(Min, Max)
 {
     return Math.floor(Math.random() * (Max - Min)) + Min;
@@ -506,27 +536,37 @@ Update(DeltaTime)
     PlayerDirection.X = 0.0;
     PlayerDirection.Y = 0.0;
 
-    if (Keys[KEY_W] == true)
-    {
-        PlayerDirection.Y = -1.0;
-    }
-    if (Keys[KEY_S] == true)
-    {
-        PlayerDirection.Y = 1.0;
-    }
-    if (Keys[KEY_A] == true)
-    {
-        PlayerDirection.X = -1.0;
-    }
-    if (Keys[KEY_D] == true)
-    {
-        PlayerDirection.X = 1.0;
-    }
+    //if (Keys[KEY_W] == true)
+    //{
+    //    PlayerDirection.Y = -1.0;
+    //}
+    //if (Keys[KEY_S] == true)
+    //{
+    //    PlayerDirection.Y = 1.0;
+    //}
+    //if (Keys[KEY_A] == true)
+    //{
+    //    PlayerDirection.X = -1.0;
+    //}
+    //if (Keys[KEY_D] == true)
+    //{
+    //    PlayerDirection.X = 1.0;
+    //}
+
+    PlayerDirection = Vector2_Normalize(Vector2_Subtract(MousePosition, PlayerPosition));
 
     if (ReadyToShoot)
     {
-        var ShootDirection = new Vector2(0.0, 0.0);
-        if (Keys[KEY_UP] == true)
+        if (LeftMouseDown)
+        {
+            var ShootDirection = Vector2_Normalize(Vector2_Subtract(MousePosition, PlayerPosition));
+            ShootingProjectile = true;
+            BulletFireSpeedTimer = BulletFireSpeed;
+            ReadyToShoot = false;
+            AddBullet(5.0, ShootDirection, PlayerPosition, PlayerVelocity);
+        }
+
+        /*if (Keys[KEY_UP] == true)
         {
             ShootDirection.X = 0.0;
             ShootDirection.Y = -1.0;
@@ -561,7 +601,7 @@ Update(DeltaTime)
             BulletFireSpeedTimer = BulletFireSpeed;
             ReadyToShoot = false;
             AddBullet(5.0, ShootDirection, PlayerPosition, PlayerVelocity);
-        }
+        }*/
     }
 
     BulletFireSpeedTimer -= DeltaTime;
@@ -641,6 +681,9 @@ StartGame()
 
     document.addEventListener("keydown", KeyDown, false);
     document.addEventListener("keyup", KeyUp, false);
+    document.addEventListener("mousemove", MouseMove, false);
+    document.addEventListener("mousedown", MouseDown, false);
+    document.addEventListener("mouseup", MouseUp, false);
     GameLoop();
 }
 
