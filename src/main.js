@@ -554,6 +554,7 @@ Update(DeltaTime)
     //}
 
     PlayerDirection = Vector2_Normalize(Vector2_Subtract(MousePosition, PlayerPosition));
+    PlayerSpeed = Vector2_Distance(MousePosition, PlayerPosition) * 2.0;
 
     if (ReadyToShoot)
     {
